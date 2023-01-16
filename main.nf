@@ -110,13 +110,54 @@ workflow preprocess{
 
     main:
         check_files([params.eagle_genetic_map])
+        // params.datasets.each { dataset, dataset_vcf, dataset_sample ->
+        //     datasets_ch = Channel.of(dataset)
+        //         .combine(Channel.fromPath(dataset_vcf))
+        //         .combine(Channel.fromPath(dataset_sample))
+        // }
+
+        datasets = []
         params.datasets.each { dataset, dataset_vcf, dataset_sample ->
-            datasets_ch = Channel.of(dataset)
-                .combine(Channel.fromPath(dataset_vcf))
-                .combine(Channel.fromPath(dataset_sample))
+            datas = []
+            dataset_vcfs = file(dataset_vcf)
+            if (dataset_vcfs instanceof List){
+                dataset_vcfs.each{ vcf ->
+                    datas = [ dataset ]
+                    if( file(vcf).getExtension() == "gz" ){
+                        vcf_index = "${vcf}.tbi"
+                    }
+                    else if( file(vcf).getExtension() == "bcf" ){
+                        vcf_index = "${vcf}.csi"
+                    }
+                    else{
+                        vcf_index = "${vcf}.tbi"
+                    }
+                    check_files([ vcf, vcf_index ])
+                    datas << file(vcf)
+                    datas << file(vcf_index)
+                    datasets << datas
+                }
+            }
+            else{
+                datas = [ dataset ]
+                if( file(dataset_vcf).getExtension() == "gz" ){
+                    dataset_vcf_index = "${dataset_vcf}.tbi"
+                }
+                else if( file(dataset_vcf).getExtension() == "bcf" ){
+                    dataset_vcf_index = "${dataset_vcf}.csi"
+                }
+                else{
+                    dataset_vcf_index = "${dataset_vcf}.tbi"
+                }
+                check_files([ dataset_vcf, dataset_vcf_index ])
+                datas << file(dataset_vcf)
+                datas << file(dataset_vcf_index)
+                datasets << datas
+            }
         }
-        
-        get_chromosome(datasets_ch.map{ dataset, vcf, sample -> [ dataset, file(vcf), file("${vcf}.tbi") ]})
+        datasets_ch = Channel.from(datasets)
+
+        get_chromosome(datasets_ch)
 
         generate_chunks_vcf(get_chromosome.out.map{ dataset, vcf, vcf_idx, map_file -> [ dataset, file(vcf), file(vcf_idx), file(map_file), params.chunk_size ] })
         chunks_datas = generate_chunks_vcf.out.flatMap{ dataset, vcf, vcf_idx, chunk_file ->
@@ -133,7 +174,7 @@ workflow preprocess{
         }
         split_target_to_chunk(chunks_datas)
     
-        // // // Checkk REF mismacthes 
+        // Checkk REF mismacthes 
         check_mismatch(split_target_to_chunk.out.map{ dataset, chrm, start, end, tagname, vcf -> [ dataset, chrm, start, end, file(vcf), file(params.reference_genome) ] })
         check_mismatch.out.map{ dataset, vcf, chrm, start, end, warn, summary -> no_mismatch(dataset, warn, summary) }
 
@@ -150,7 +191,7 @@ workflow preprocess{
         qc_data = vcf_map_simple.out
 }
 
-workflow phasing{
+workflow phasing {
     take: data
 
     main:
