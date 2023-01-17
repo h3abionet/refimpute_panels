@@ -530,11 +530,11 @@ process combine_vcfs {
    label "bigmem10"
    
    input:
-       tuple val(dataset), val(ref_name), val(vcfs)
+       tuple val(dataset), val(chrm), val(vcfs)
    output:
-       tuple val(dataset), val(ref_name), file(vcf_out), file("${vcf_out}.tbi")
+       tuple val(dataset), val(chrm), file(vcf_out), file("${vcf_out}.tbi")
    script:
-       vcf_out = "${dataset}_${ref_name}_all.vcf.gz"
+       vcf_out = "${dataset}_${chrm}_all.vcf.gz"
        if(vcfs.size() > 1){
             """
             bcftools concat ${vcfs.join(' ')} --allow-overlaps --remove-duplicates | \
