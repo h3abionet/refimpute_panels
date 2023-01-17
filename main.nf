@@ -110,11 +110,6 @@ workflow preprocess{
 
     main:
         check_files([params.eagle_genetic_map])
-        // params.datasets.each { dataset, dataset_vcf, dataset_sample ->
-        //     datasets_ch = Channel.of(dataset)
-        //         .combine(Channel.fromPath(dataset_vcf))
-        //         .combine(Channel.fromPath(dataset_sample))
-        // }
 
         datasets = []
         params.datasets.each { dataset, dataset_vcf, dataset_sample ->
@@ -182,10 +177,10 @@ workflow preprocess{
         filter_f_missing(split_target_to_chunk.out.map{ dataset, chrm, start, end, tagname, vcf -> [ dataset, chrm, start, end, file(vcf), '' ] })
         // qc_dupl(split_target_to_chunk.out.map{ dataset, chrm, start, end, tagname, vcf -> [ dataset, chrm, start, end, file(vcf)] })
         split_multi_allelic(filter_f_missing.out)
-        // filter_min_ac(split_multi_allelic.out.map{ dataset, chrm, start, end, vcf -> [ dataset, chrm, start, end, file(vcf), " --min-ac ${params.min_ac} --max-alleles ${params.max_alleles} --min-alleles ${params.min_alleles} "  ] })
+        filter_min_ac(split_multi_allelic.out.map{ dataset, chrm, start, end, vcf -> [ dataset, chrm, start, end, file(vcf), " --min-ac ${params.min_ac} --max-alleles ${params.max_alleles} --min-alleles ${params.min_alleles} -v snps "  ] })
         // filter_min_ac(split_multi_allelic.out.map{ dataset, chrm, start, end, vcf -> [ dataset, chrm, start, end, file(vcf), " --min-ac ${params.min_ac} "  ] })
-        // vcf_map_simple(filter_min_ac.out.map{ dataset, chrm, start, end, vcf -> [ dataset, chrm, start, end, file(vcf), '', '' ] })
-        vcf_map_simple(split_multi_allelic.out.map{ dataset, chrm, start, end, vcf -> [ dataset, chrm, start, end, file(vcf), '', '' ] })
+        vcf_map_simple(filter_min_ac.out.map{ dataset, chrm, start, end, vcf -> [ dataset, chrm, start, end, file(vcf), '', '' ] })
+        // vcf_map_simple(split_multi_allelic.out.map{ dataset, chrm, start, end, vcf -> [ dataset, chrm, start, end, file(vcf), '', '' ] })
 
     emit:
         qc_data = vcf_map_simple.out
