@@ -1,2 +1,7 @@
 run.sh
 panel_build_h3a.config
+*.html
+.*
+execution_trace.txt
+*.dot
+slurm.out

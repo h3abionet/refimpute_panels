@@ -525,7 +525,7 @@ process combine_vcfs_chrm {
 
 
 process combine_vcfs {
-   tag "combine_${dataset}_${ref_name}"
+   tag "combine_${dataset}_${chrm}"
    publishDir "${params.outdir}/${dataset}/vcfs", overwrite: false, mode:'copy'
    label "bigmem10"
    
@@ -541,6 +541,7 @@ process combine_vcfs {
             bcftools sort -T . |\
             bcftools view --threads ${task.cpus} -Oz -o ${vcf_out}
             tabix ${vcf_out}
+            
             """
        }
        else if(vcfs.size() == 1){

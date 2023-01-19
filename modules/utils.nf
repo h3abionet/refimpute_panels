@@ -51,7 +51,7 @@ process vcf_to_m3vcf {
 
 process vcf_legend {
     tag "legend_${dataset}_${chrm}"
-    publishDir "${params.outdir}/${chrm}/legends", mode:'copy', overwrite: true
+    publishDir "${params.outdir}/${dataset}/legends", mode:'copy', overwrite: true
     label "bigmem"
 
     input:
@@ -74,7 +74,8 @@ process vcf_legend {
 
 process vcf_to_bcf {
     tag "bcf_${dataset}_${chrm}"
-    publishDir "${params.outdir}/${chrm}/bcfs", mode:'copy', overwrite: true
+    publishDir "${params.outdir}/${dataset}/bcfs", mode:'copy', overwrite: true
+   
     label "bigmem"
 
     input:
