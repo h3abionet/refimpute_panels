@@ -8,3 +8,4 @@ execution_trace.txt
 slurm.out
 notes.md
 test.sh
+pipeline_dag.svg
