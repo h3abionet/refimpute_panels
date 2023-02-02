@@ -308,6 +308,22 @@ process remove_duplicate {
         """
 }
 
+process filter_simple_snps_only {
+    tag "${dataset}"
+
+    input:
+        tuple val(dataset), file(dataset_vcf), file("${dataset_vcf}.tbi")
+    output:
+        tuple val(dataset), file(vcf_out), file("${vcf_out}.csi")
+    script:
+        base = file(dataset_vcf.baseName).baseName
+        vcf_out = "${base}.snps.bcf"
+        """
+        bcftools view -V indels --max-alleles 2 ${dataset_vcf} --threads ${task.cpus} -Ob -o ${vcf_out}
+        tabix -f ${vcf_out}
+        """
+}
+
 process split_multi_allelic {
     tag "split_multi_${dataset}_${chrm}_${start}_${end}"
     label "bigmem5"

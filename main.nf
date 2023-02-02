@@ -1,7 +1,7 @@
 #!/usr/bin/env nextflow
 nextflow.enable.dsl=2
 
-include { split_vcf_chromosome; split_vcf_chunk; filter_min_ac; filter_f_missing; split_multi_allelic; qc_dupl; get_chromosome; get_chromosome_vcf; check_chromosome; check_files; check_chromosome_vcf; check_mismatch; no_mismatch ; target_qc as target_qc; target_qc as target_qc1; qc_site_missingness as qc_site_missingness1; qc_site_missingness as qc_site_missingness2; sites_only ; combine_vcfs ; combine_infos; combine_csvs as combine_freqs; combine_vcfs_chrm; } from './modules/qc'
+include { split_vcf_chromosome; split_vcf_chunk; filter_min_ac; filter_f_missing; split_multi_allelic; qc_dupl; get_chromosome; get_chromosome_vcf; check_chromosome; check_files; check_chromosome_vcf; check_mismatch; no_mismatch ; target_qc as target_qc; target_qc as target_qc1; qc_site_missingness as qc_site_missingness1; qc_site_missingness as qc_site_missingness2; sites_only ; combine_vcfs ; combine_infos; combine_csvs as combine_freqs; combine_vcfs_chrm; filter_simple_snps_only;} from './modules/qc'
 include { generate_chunks_vcf; split_target_to_chunk; vcf_map; vcf_map_simple } from './modules/subset_vcf'
 include { phasing_vcf_no_ref_chunk } from './modules/phasing'
 include { vcf_to_m3vcf; vcf_to_bcf; vcf_legend } from './modules/utils'
@@ -150,9 +150,12 @@ workflow preprocess{
                 datasets << datas
             }
         }
+        
         datasets_ch = Channel.from(datasets)
 
-        get_chromosome(datasets_ch)
+        filter_simple_snps_only(datasets_ch)
+
+        get_chromosome(filter_simple_snps_only.out)
 
         generate_chunks_vcf(get_chromosome.out.map{ dataset, vcf, vcf_idx, map_file -> [ dataset, file(vcf), file(vcf_idx), file(map_file), params.chunk_size ] })
         chunks_datas = generate_chunks_vcf.out.flatMap{ dataset, vcf, vcf_idx, chunk_file ->
@@ -168,7 +171,7 @@ workflow preprocess{
             return datas
         }
         split_target_to_chunk(chunks_datas)
-    
+
         // Checkk REF mismacthes 
         check_mismatch(split_target_to_chunk.out.map{ dataset, chrm, start, end, tagname, vcf -> [ dataset, chrm, start, end, file(vcf), file(params.reference_genome) ] })
         check_mismatch.out.map{ dataset, vcf, chrm, start, end, warn, summary -> no_mismatch(dataset, warn, summary) }
