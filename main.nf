@@ -172,7 +172,7 @@ workflow preprocess{
         }
         //TODO: put this in a workflow so that combine_vcf_sites is not called multiple times
         split_target_to_chunk(chunks_datas)
-        combine_vcf_sites_1(split_target_to_chunk.out.map{ dataset, chrm, start, end, tagname, vcf -> [ dataset, "${chrm}_split_chunks", file(vcf) ] })
+        combine_vcf_sites_1(split_target_to_chunk.out.map{ dataset, chrm, start, end, tagname, vcf -> [ dataset, "split_chunks", file(vcf) ] })
 
         // Checkk REF mismacthes 
         check_mismatch(split_target_to_chunk.out.map{ dataset, chrm, start, end, tagname, vcf -> [ dataset, chrm, start, end, file(vcf), file(params.reference_genome) ] })
@@ -180,15 +180,15 @@ workflow preprocess{
 
         // QC
         filter_f_missing(split_target_to_chunk.out.map{ dataset, chrm, start, end, tagname, vcf -> [ dataset, chrm, start, end, file(vcf), '' ] })
-        combine_vcf_sites_2(filter_f_missing.out.map{ dataset, chrm, start, end, vcf -> [ dataset, "${chrm}_filter_missingness", file(vcf) ] })
+        combine_vcf_sites_2(filter_f_missing.out.map{ dataset, chrm, start, end, vcf -> [ dataset, "$filter_missingness", file(vcf) ] })
 
         // qc_dupl(split_target_to_chunk.out.map{ dataset, chrm, start, end, tagname, vcf -> [ dataset, chrm, start, end, file(vcf)] })
 
         split_multi_allelic(filter_f_missing.out)
-        combine_vcf_sites_3(split_multi_allelic.out.map{ dataset, chrm, start, end, vcf -> [ dataset, "${chrm}_split_multi_allelic", file(vcf) ] })
+        combine_vcf_sites_3(split_multi_allelic.out.map{ dataset, chrm, start, end, vcf -> [ dataset, "$split_multi_allelic", file(vcf) ] })
 
         filter_min_ac(split_multi_allelic.out.map{ dataset, chrm, start, end, vcf -> [ dataset, chrm, start, end, file(vcf), " --min-ac ${params.min_ac} --max-alleles ${params.max_alleles} --min-alleles ${params.min_alleles} -v snps "  ] })
-        combine_vcf_sites_4(filter_min_ac.out.map{ dataset, chrm, start, end, vcf -> [ dataset, "${chrm}_filter_min_ac", file(vcf) ] })
+        combine_vcf_sites_4(filter_min_ac.out.map{ dataset, chrm, start, end, vcf -> [ dataset, "$filter_min_ac", file(vcf) ] })
         
         // filter_min_ac(split_multi_allelic.out.map{ dataset, chrm, start, end, vcf -> [ dataset, chrm, start, end, file(vcf), " --min-ac ${params.min_ac} "  ] })
         vcf_map_simple(filter_min_ac.out.map{ dataset, chrm, start, end, vcf -> [ dataset, chrm, start, end, file(vcf), '', '' ] })
@@ -211,7 +211,7 @@ workflow phasing {
         }
         phasing_vcf_no_ref_chunk(phasing_ch)
         combine_vcfs(phasing_vcf_no_ref_chunk.out.groupTuple(by:[0,1]).map{ dataset, chrm, starts, ends, vcfs -> [ dataset, chrm, vcfs ] })
-        combine_vcf_sites_5(phasing_vcf_no_ref_chunk.out.map{ dataset, chrm, start, end, vcf -> [ dataset, "${chrm}_phasing_vcf_no_ref_chunk", file(vcf) ] })
+        combine_vcf_sites_5(phasing_vcf_no_ref_chunk.out.map{ dataset, chrm, start, end, vcf -> [ dataset, "phasing_vcf_no_ref_chunk", file(vcf) ] })
 
     emit:
         phased_data = combine_vcfs.out
