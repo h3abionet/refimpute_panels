@@ -512,6 +512,25 @@ process get_sites_only_1 {
         """
 }
 
+process get_sites_only_2 {
+    tag "sites_only_${dataset}_${description}"
+    label "bigmem5"
+
+    input:
+        tuple val(dataset), val(description), file(vcf_file)
+
+    output:
+        tuple val(dataset), val(description), file(vcf_sites)
+
+    script:
+        vcf_sites = "${dataset}_${description}_sitesOnly.bcf"
+        """
+        bcftools view --drop-genotypes --threads ${task.cpus} ${vcf_file} -Ob -o ${vcf_sites}
+        tabix ${vcf_sites}
+        """
+}
+
+
 
 process combine_vcfs_chrm {
    tag "combine_${chrm}_${target_name}_${ref_name}_${tagName}"
@@ -540,6 +559,7 @@ process combine_vcfs_chrm {
 }
 
 
+//TODO: change the elseif part to be like in combine_vcfs_1
 process combine_vcfs {
    tag "combine_${dataset}_${chrm}"
    publishDir "${params.outdir}/${dataset}/vcfs", overwrite: false, mode:'copy'
@@ -570,6 +590,33 @@ process combine_vcfs {
 
 process combine_vcfs_1 {
    tag "combine_${dataset}_${desc}"
+   publishDir "${params.outdir}/${dataset}/reports/${desc}", overwrite: false, mode:'copy'
+   label "bigmem"
+   
+   input:
+       tuple val(dataset), val(desc), val(vcfs)
+   output:
+       tuple val(dataset), val(desc), file(vcf_out)
+   script:
+       vcf_out = "${dataset}_${desc}_all.vcf.gz"
+       if(vcfs.size() > 1){
+            """
+            bcftools concat ${vcfs.join(' ')} --allow-overlaps --remove-duplicates | \
+            bcftools sort -T . |\
+            bcftools view --threads ${task.cpus} -Oz -o ${vcf_out}
+            tabix ${vcf_out}
+            """
+       }
+       else if(vcfs.size() == 1){
+            """
+            bcftools sort -T . ${vcfs.join(' ')} -Oz -o ${vcf_out}
+            tabix ${vcf_out}
+            """
+       }
+}
+
+process combine_vcfs_sites_only {
+   tag "combine_${dataset}_${desc}"
    publishDir "${params.outdir}/${dataset}/vcfs", overwrite: false, mode:'copy'
    label "bigmem"
    
@@ -582,13 +629,15 @@ process combine_vcfs_1 {
        if(vcfs.size() > 1){
             """
             bcftools concat ${vcfs.join(' ')} --allow-overlaps --remove-duplicates | \
+            bcftools view --drop-genotypes | \
             bcftools sort -T . -Oz -o ${vcf_out}
             tabix ${vcf_out}
             """
        }
        else if(vcfs.size() == 1){
             """
-            bcftools sort -T . ${vcfs.join(' ')} -Oz -o ${vcf_out}
+            bcftools sort -T . ${vcfs.join(' ')} |\
+            bcftools view --drop-genotypes -Oz -o ${vcf_out}
             tabix ${vcf_out}
             """
        }
@@ -756,6 +805,16 @@ process plot_maf_comparison{
        dataset1 = group.split('__')[0]
        dataset2 = group.split('__')[1]
        template "plot_allele_frequency_comparison.R"
+}
+
+workflow combine_vcf_sites{
+    take:
+        data
+    main:
+        get_sites_only_2(data)
+        combine_vcfs_1(get_sites_only_2.out.groupTuple(by:[0,1])).view()
+    emit:
+        combine_vcfs_1.out
 }
 
 // def helpMessage() {

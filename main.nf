@@ -1,7 +1,7 @@
 #!/usr/bin/env nextflow
 nextflow.enable.dsl=2
 
-include { split_vcf_chromosome; split_vcf_chunk; filter_min_ac; filter_f_missing; split_multi_allelic; qc_dupl; get_chromosome; get_chromosome_vcf; check_chromosome; check_files; check_chromosome_vcf; check_mismatch; no_mismatch ; target_qc as target_qc; target_qc as target_qc1; qc_site_missingness as qc_site_missingness1; qc_site_missingness as qc_site_missingness2; sites_only ; combine_vcfs ; combine_infos; combine_csvs as combine_freqs; combine_vcfs_chrm; filter_simple_snps_only;} from './modules/qc'
+include { split_vcf_chromosome; split_vcf_chunk; filter_min_ac; filter_f_missing; split_multi_allelic; qc_dupl; get_chromosome; get_chromosome_vcf; check_chromosome; check_files; check_chromosome_vcf; check_mismatch; no_mismatch ; target_qc as target_qc; target_qc as target_qc1; qc_site_missingness as qc_site_missingness1; qc_site_missingness as qc_site_missingness2; sites_only ; combine_vcfs ; combine_infos; combine_csvs as combine_freqs; combine_vcfs_chrm; filter_simple_snps_only; combine_vcfs_sites_only; combine_vcf_sites as combine_vcf_sites_1; combine_vcf_sites as combine_vcf_sites_2; combine_vcf_sites as combine_vcf_sites_3; combine_vcf_sites as combine_vcf_sites_4; combine_vcf_sites as combine_vcf_sites_5;} from './modules/qc'
 include { generate_chunks_vcf; split_target_to_chunk; vcf_map; vcf_map_simple } from './modules/subset_vcf'
 include { phasing_vcf_no_ref_chunk } from './modules/phasing'
 include { vcf_to_m3vcf; vcf_to_bcf; vcf_legend } from './modules/utils'
@@ -170,7 +170,9 @@ workflow preprocess{
             }
             return datas
         }
+        //TODO: put this in a workflow so that combine_vcf_sites is not called multiple times
         split_target_to_chunk(chunks_datas)
+        combine_vcf_sites_1(split_target_to_chunk.out.map{ dataset, chrm, start, end, tagname, vcf -> [ dataset, "${chrm}_split_chunks", file(vcf) ] })
 
         // Checkk REF mismacthes 
         check_mismatch(split_target_to_chunk.out.map{ dataset, chrm, start, end, tagname, vcf -> [ dataset, chrm, start, end, file(vcf), file(params.reference_genome) ] })
@@ -178,9 +180,16 @@ workflow preprocess{
 
         // QC
         filter_f_missing(split_target_to_chunk.out.map{ dataset, chrm, start, end, tagname, vcf -> [ dataset, chrm, start, end, file(vcf), '' ] })
+        combine_vcf_sites_2(filter_f_missing.out.map{ dataset, chrm, start, end, vcf -> [ dataset, "${chrm}_filter_missingness", file(vcf) ] })
+
         // qc_dupl(split_target_to_chunk.out.map{ dataset, chrm, start, end, tagname, vcf -> [ dataset, chrm, start, end, file(vcf)] })
+
         split_multi_allelic(filter_f_missing.out)
+        combine_vcf_sites_3(split_multi_allelic.out.map{ dataset, chrm, start, end, vcf -> [ dataset, "${chrm}_split_multi_allelic", file(vcf) ] })
+
         filter_min_ac(split_multi_allelic.out.map{ dataset, chrm, start, end, vcf -> [ dataset, chrm, start, end, file(vcf), " --min-ac ${params.min_ac} --max-alleles ${params.max_alleles} --min-alleles ${params.min_alleles} -v snps "  ] })
+        combine_vcf_sites_4(filter_min_ac.out.map{ dataset, chrm, start, end, vcf -> [ dataset, "${chrm}_filter_min_ac", file(vcf) ] })
+        
         // filter_min_ac(split_multi_allelic.out.map{ dataset, chrm, start, end, vcf -> [ dataset, chrm, start, end, file(vcf), " --min-ac ${params.min_ac} "  ] })
         vcf_map_simple(filter_min_ac.out.map{ dataset, chrm, start, end, vcf -> [ dataset, chrm, start, end, file(vcf), '', '' ] })
         // vcf_map_simple(split_multi_allelic.out.map{ dataset, chrm, start, end, vcf -> [ dataset, chrm, start, end, file(vcf), '', '' ] })
@@ -202,6 +211,7 @@ workflow phasing {
         }
         phasing_vcf_no_ref_chunk(phasing_ch)
         combine_vcfs(phasing_vcf_no_ref_chunk.out.groupTuple(by:[0,1]).map{ dataset, chrm, starts, ends, vcfs -> [ dataset, chrm, vcfs ] })
+        combine_vcf_sites_5(phasing_vcf_no_ref_chunk.out.map{ dataset, chrm, start, end, vcf -> [ dataset, "${chrm}_phasing_vcf_no_ref_chunk", file(vcf) ] })
 
     emit:
         phased_data = combine_vcfs.out
